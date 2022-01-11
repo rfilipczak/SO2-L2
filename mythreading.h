@@ -19,6 +19,7 @@
 #ifdef OS_LINUX
 #include <pthread.h>
 #include <unistd.h>
+#include <time.h>
 #else
 #include <windows.h>
 #endif
@@ -239,15 +240,22 @@ namespace my
 #endif
 		}
 
-		void sleep_for(std::chrono::milliseconds ms)
+		void sleep_for(std::chrono::milliseconds time)
 		{
 #ifdef OS_LINUX
-			usleep(static_cast<useconds_t>(ms.count() * 1000));
+			using namespace std::chrono_literals;
+			using namespace std::chrono;
+
+			struct timespec ts;
+			ts.tv_sec = static_cast<long>(duration_cast<seconds>(time).count());
+			auto nsec = static_cast<long>(duration_cast<nanoseconds>(time % 1000ms).count());
+			ts.tv_nsec = (nsec > 999999999L) ? (999999999L) : (nsec); // man nanosleep for justification
+
+			nanosleep(&ts, NULL);
 #else // OS_WINDOWS
-			Sleep(static_cast<DWORD>(ms.count()));
+			Sleep(static_cast<DWORD>(time.count()));
 #endif
 		}
 	}
 }
-
 #endif // MY_THREADING_H
