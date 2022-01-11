@@ -2,6 +2,10 @@
 
 This is one source file for both Linux and Windows as OS-dependencies are abstracted away in mythreading.h header.
 
+## TODO
+
+- [ ] syscalls error handling
+
 ## 2A (linux)
 
 ### Requirements
@@ -55,7 +59,7 @@ Usage: ./prog N[3-100] direction[inc/dec]
 * c++20
 
 ### Build
-use your favourite compiler/build system
+use your favourite compiler/build system/IDE
 
 ### Run
 API is the same as for linux
