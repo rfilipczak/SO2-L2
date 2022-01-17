@@ -1,16 +1,21 @@
-# L2
+# SO2-L2
+
+Program creates N [3...100] threads. Threads end in a specified order, based on command-line arguments and their ID. The program should work on both Linux and Windows and use os-specific syscalls/libraries (i.e pthreads for Linux, WinAPI for Windows).
+
+### Note
 
 This is one source file for both Linux and Windows as OS-dependencies are abstracted away in mythreading.h header.
 
 ## TODO
 
 - [ ] syscalls error handling
+- [ ] tests
 
 ## 2A (linux)
 
 ### Requirements
 * g++
-* c++20
+* c++17
 * make
 
 ### Build and run
@@ -56,7 +61,7 @@ Usage: ./prog N[3-100] direction[inc/dec]
 ## 2B (windows)
 
 ### Requirements
-* c++20
+* c++17
 
 ### Build
 use your favourite compiler/build system/IDE
