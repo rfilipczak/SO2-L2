@@ -2,11 +2,7 @@
 #define MY_THREADING_H
 
 #include <vector>
-#include <algorithm>
 #include <chrono>
-#include <atomic>
-#include <algorithm>
-
 
 #ifdef __unix__         
 #define OS_LINUX
@@ -105,17 +101,17 @@ namespace my
 
 	class thread
 	{
-		using Routine = void* (*) (void*);
+		using routine_t = void* (*) (void*);
 
 #ifdef OS_LINUX
 	public:
 		using id_t = pthread_t;
 	private:
-		Routine routine;
+		routine_t routine;
 		pthread_t id;
 		void* arg;
 	public:
-		thread(Routine _routine, void* _arg)
+		thread(routine_t _routine, void* _arg)
 			: routine{ _routine }, arg{ _arg }
 		{
 			pthread_create(&id, NULL, routine, arg);
@@ -131,7 +127,7 @@ namespace my
 			return id;
 		}
 
-		inline void join()
+		void join()
 		{
 			pthread_join(id, NULL);
 		}
@@ -144,20 +140,20 @@ namespace my
 	public:
 		using id_t = DWORD;
 	private:
-		Routine routine;
-		HANDLE threadHandle;
+		routine_t routine;
+		HANDLE thread_handle;
 		id_t id;
 		void* arg;
 
 	public:
-		thread(Routine _routine, void* _arg)
+		thread(routine_t _routine, void* _arg)
 			: routine{ _routine }, arg{ _arg }
 		{
-			threadHandle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)routine, arg, 0, &id);
+			thread_handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)routine, arg, 0, &id);
 		}
 
 		thread(const thread& other)
-			: routine{ other.routine }, threadHandle{ other.threadHandle }, id{ other.id }, arg{ other.arg }
+			: routine{ other.routine }, thread_handle{ other.thread_handle }, id{ other.id }, arg{ other.arg }
 		{
 		}
 
@@ -166,10 +162,10 @@ namespace my
 			return id;
 		}
 
-		inline void join()
+		void join()
 		{
-			WaitForSingleObject(threadHandle, INFINITE);
-			CloseHandle(threadHandle);
+			WaitForSingleObject(thread_handle, INFINITE);
+			CloseHandle(thread_handle);
 		}
 
 		bool operator !=(const thread& that)
@@ -177,56 +173,6 @@ namespace my
 			return this->id != that.id;
 		}
 #endif
-	};
-
-	class thread_queue
-	{
-	private:
-		mutable my::mutex mutex{};
-		std::atomic<bool> m_sorted = false;
-		std::atomic<int> current = 0;
-	public:
-		std::vector<my::thread> threads{};
-
-		thread_queue() = default;
-
-		void push(const my::thread& t)
-		{
-			my::lock_guard g{ mutex };
-			threads.emplace_back(t);
-		}
-
-		my::thread::id_t peek() const
-		{
-			my::lock_guard g{ mutex };
-			return threads.at(current).getid();
-		}
-
-		void next()
-		{
-			my::lock_guard g{ mutex };
-			++current;
-		}
-
-		void sort()
-		{
-			my::lock_guard g{ mutex };
-			std::sort(std::begin(threads), std::end(threads), [](const auto& a, const auto& b) {return a.getid() < b.getid(); });
-			m_sorted = true;
-		}
-
-		void reverse_sort()
-		{
-			my::lock_guard g{ mutex };
-			std::sort(std::begin(threads), std::end(threads), [](const auto& a, const auto& b) {return a.getid() > b.getid(); });
-			m_sorted = true;
-		}
-
-		bool sorted() const
-		{
-			my::lock_guard g{ mutex };
-			return m_sorted;
-		}
 	};
 
 	namespace this_thread
@@ -248,8 +194,7 @@ namespace my
 
 			struct timespec ts;
 			ts.tv_sec = static_cast<long>(duration_cast<seconds>(time).count());
-			auto nsec = static_cast<long>(duration_cast<nanoseconds>(time % 1000ms).count());
-			ts.tv_nsec = (nsec > 999999999L) ? (999999999L) : (nsec); // man nanosleep for justification
+			ts.tv_nsec = static_cast<long>(duration_cast<nanoseconds>(time % 1000ms).count());
 
 			nanosleep(&ts, NULL);
 #else // OS_WINDOWS

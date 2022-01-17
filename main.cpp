@@ -1,13 +1,11 @@
 #include <iostream>
 #include <chrono>
 #include <tuple>
+#include <algorithm>
 
 
 #include "iohelp.h"
 #include "mythreading.h"
-
-
-using namespace std::chrono_literals;
 
 
 namespace settings
@@ -18,6 +16,7 @@ namespace settings
     const char* direction_inc = "inc";
     const char* direcion_dec = "dec";
 
+    using namespace std::chrono_literals;
     constexpr auto threads_routine_opening_sleep_time = 1000ms;
     constexpr auto cooldown_after_polling_queue = 100ms;
 }
@@ -35,6 +34,57 @@ Direction cstr_to_direction(const std::string& str);
 std::tuple<int, Direction> setup(char** argv);
 
 
+class thread_queue
+{
+private:
+    mutable my::mutex mutex{};
+    bool m_sorted = false;
+    std::size_t current = 0;
+public:
+    std::vector<my::thread> threads{};
+
+    thread_queue() = default;
+
+    void push(const my::thread& t)
+    {
+        my::lock_guard g{ mutex };
+        threads.emplace_back(t);
+    }
+
+    my::thread::id_t peek() const
+    {
+        my::lock_guard g{ mutex };
+        return threads.at(current).getid();
+    }
+
+    void next()
+    {
+        my::lock_guard g{ mutex };
+        ++current;
+    }
+
+    void sort()
+    {
+        my::lock_guard g{ mutex };
+        std::sort(std::begin(threads), std::end(threads), [](const auto& a, const auto& b) {return a.getid() < b.getid(); });
+        m_sorted = true;
+    }
+
+    void reverse_sort()
+    {
+        my::lock_guard g{ mutex };
+        std::sort(std::begin(threads), std::end(threads), [](const auto& a, const auto& b) {return a.getid() > b.getid(); });
+        m_sorted = true;
+    }
+
+    bool sorted() const
+    {
+        my::lock_guard g{ mutex };
+        return m_sorted;
+    }
+};
+
+
 void* routine(void* queue)
 {
     static my::mutex mutex;
@@ -45,7 +95,7 @@ void* routine(void* queue)
 
     my::this_thread::sleep_for(settings::threads_routine_opening_sleep_time);
 
-    my::thread_queue* q = (my::thread_queue*)queue;
+    ::thread_queue* q = (::thread_queue*)queue;
 
     while (!q->sorted())
     {
@@ -69,7 +119,7 @@ void* routine(void* queue)
 int main(int argc [[maybe_unused]], char* argv[])
 {
     auto [threads_to_create, direction] = setup(argv);
-    my::thread_queue q{};
+    ::thread_queue q{};
 
     for (int i = 0; i < threads_to_create; ++i)
     {
