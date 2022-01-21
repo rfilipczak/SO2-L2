@@ -15,7 +15,7 @@ This is one source file for both Linux and Windows as OS-dependencies are abstra
 
 ### Requirements
 * g++
-* c++17
+* c++20
 * make
 
 ### Build and run
@@ -61,7 +61,7 @@ Usage: ./prog N[3-100] direction[inc/dec]
 ## 2B (windows)
 
 ### Requirements
-* c++17
+* c++20
 
 ### Build
 use your favourite compiler/build system/IDE

@@ -2,7 +2,7 @@
 #include <chrono>
 #include <tuple>
 #include <algorithm>
-
+#include <syncstream>
 
 #include "iohelp.h"
 #include "mythreading.h"
@@ -18,7 +18,7 @@ namespace settings
 
     using namespace std::chrono_literals;
     constexpr auto threads_routine_opening_sleep_time = 1000ms;
-    constexpr auto cooldown_after_polling_queue = 100ms;
+    constexpr auto cooldown_after_polling_queue = 10ms;
 }
 
 
@@ -87,11 +87,10 @@ public:
 
 void* routine(void* queue)
 {
-    static my::mutex mutex;
+    std::osyncstream syncout{std::cout};
 
-    my::unique_lock l{ mutex };
-    std::cout << "[THREAD: " << my::this_thread::id() << "] Start..." << std::endl;
-    l.unlock();
+    syncout << "[THREAD: " << my::this_thread::id() << "] Start...\n" << std::flush_emit;
+
 
     my::this_thread::sleep_for(settings::threads_routine_opening_sleep_time);
 
@@ -107,10 +106,9 @@ void* routine(void* queue)
         my::this_thread::sleep_for(settings::cooldown_after_polling_queue);
     }
 
-    l.lock();
     q->next();
-    std::cout << "[THREAD: " << my::this_thread::id() << "] Stop..." << std::endl;
-    l.unlock();
+
+    syncout << "[THREAD: " << my::this_thread::id() << "] Stop...\n" << std::flush_emit;
 
     return 0;
 }

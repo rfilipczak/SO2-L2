@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++17 -Wpedantic -Wall -Wextra -Wconversion -O2
+CFLAGS = -std=c++2a -Wpedantic -Wall -Wextra -Wconversion -O2
 
 SRC = ./main.cpp
 INCLUDE = ./iohelp.h ./mythreading.h
