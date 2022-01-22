@@ -63,7 +63,6 @@ Usage: ./prog N[3-100] direction[inc/dec]
 
 ### Requirements
 * c++20
-* [fmt](https://github.com/fmtlib/fmt)
 
 ### Build
 use your favourite compiler/build system/IDE
