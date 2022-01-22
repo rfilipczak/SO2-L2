@@ -3,6 +3,9 @@
 #include <tuple>
 #include <algorithm>
 #include <syncstream>
+#include <exception>
+
+#include <fmt/format.h>
 
 #include "iohelp.h"
 #include "mythreading.h"
@@ -88,8 +91,9 @@ public:
 void* routine(void* queue)
 {
     std::osyncstream syncout{std::cout};
-
-    syncout << "[THREAD: " << my::this_thread::id() << "] Start...\n" << std::flush_emit;
+    
+    //  "[THREAD: " << my::this_thread::id() << "] Start...\n" << std::flush_emit;
+    syncout << fmt::format("[THREAD: {}] Start...\n", my::this_thread::id()) << std::flush_emit;
 
 
     my::this_thread::sleep_for(settings::threads_routine_opening_sleep_time);
@@ -108,7 +112,8 @@ void* routine(void* queue)
 
     q->next();
 
-    syncout << "[THREAD: " << my::this_thread::id() << "] Stop...\n" << std::flush_emit;
+    // syncout << "[THREAD: " << my::this_thread::id() << "] Stop...\n" << std::flush_emit;
+    syncout << fmt::format("[THREAD: {}] Stop...\n", my::this_thread::id()) << std::flush_emit;
 
     return 0;
 }
@@ -116,22 +121,43 @@ void* routine(void* queue)
 
 int main(int argc [[maybe_unused]], char* argv[])
 {
-    auto [threads_to_create, direction] = setup(argv);
-    ::thread_queue q{};
+    int threads_to_create = 0;
+    Direction direction = Direction::Invalid;
 
-    for (int i = 0; i < threads_to_create; ++i)
+    try
     {
-        my::thread t{ routine, &q };
-        q.push(t);
+        std::tie(threads_to_create, direction) = setup(argv);
     }
+    catch (const std::exception& e)
+    {
+        std::cout << e.what() << '\n';
+        print_usage(argv[0]);
+        return 1;
+    }
+    
+    try
+    {
+        ::thread_queue q{};
 
-    if (direction == Direction::Inc)
-        q.sort();
-    else
-        q.reverse_sort();
+        for (int i = 0; i < threads_to_create; ++i)
+        {
+            my::thread t{ routine, &q };
+            q.push(t);
+        }
 
-    for (auto& t : q.threads)
-        t.join();
+        if (direction == Direction::Inc)
+            q.sort();
+        else
+            q.reverse_sort();
+
+        for (auto& t : q.threads)
+            t.join();
+    }
+    catch (const my::threading_exception& e)
+    {
+        std::cout << e.what() << '\n';
+        return 1;
+    }
 
     return 0;
 }
@@ -139,9 +165,10 @@ int main(int argc [[maybe_unused]], char* argv[])
 
 void print_usage(const std::string& prog_name)
 {
-    std::cout <<
-        "Usage: " << prog_name << " N[" << settings::min_threads_to_create << '-' << settings::max_threads_to_create <<
-        "] direction[" << settings::direction_inc << '/' << settings::direcion_dec << "]\n";
+    // std::cout <<
+    //     "Usage: " << prog_name << " N[" << settings::min_threads_to_create << '-' << settings::max_threads_to_create <<
+    //     "] direction[" << settings::direction_inc << '/' << settings::direcion_dec << "]\n";
+    std::cout << fmt::format("Usage: {} N[{}-{}] direction[{}/{}]\n", prog_name, settings::min_threads_to_create, settings::max_threads_to_create, settings::direction_inc, settings::direcion_dec);
 }
 
 Direction cstr_to_direction(const std::string& str)
@@ -154,6 +181,21 @@ Direction cstr_to_direction(const std::string& str)
         return Direction::Invalid;
 }
 
+class setup_exception : public std::exception
+{
+private:
+    std::string error;
+public:
+    explicit setup_exception(const std::string& _error)
+        : error{_error}
+    {
+    }
+    const char* what() const noexcept override
+    {
+        return error.c_str();
+    }
+};
+
 std::tuple<int, Direction> setup(char** argv)
 {
     auto prog_name = iohelp::get_prog_name(argv);
@@ -163,9 +205,7 @@ std::tuple<int, Direction> setup(char** argv)
 
     if (args.size() != 2)
     {
-        std::cout << "Invalid number of arguments\n";
-        print_usage(prog_name);
-        std::exit(EXIT_FAILURE);
+        throw ::setup_exception("Invalid number of arguments");
     }
 
     int threads_to_create = 0;
@@ -176,25 +216,19 @@ std::tuple<int, Direction> setup(char** argv)
     }
     catch (const std::exception& e)
     {
-        std::cout << "Invalid argument: " << args.at(0) << " : " << e.what() << '\n';
-        print_usage(prog_name);
-        std::exit(EXIT_FAILURE);
+        throw ::setup_exception(fmt::format("Invalid argument: {}", args.at(0)));
     }
 
     if (threads_to_create < settings::min_threads_to_create || threads_to_create > settings::max_threads_to_create)
     {
-        std::cout << "Invalid argument: " << args.at(0) << '\n';
-        print_usage(prog_name);
-        std::exit(EXIT_FAILURE);
+        throw ::setup_exception(fmt::format("Invalid argument: {}", args.at(0)));
     }
 
     auto direction = cstr_to_direction(args.at(1));
 
     if (direction == Direction::Invalid)
     {
-        std::cout << "Invalid argument: " << args.at(1) << '\n';
-        print_usage(prog_name);
-        std::exit(EXIT_FAILURE);
+        throw ::setup_exception(fmt::format("Invalid argument: {}", args.at(1)));
     }
 
     return std::make_tuple(threads_to_create, direction);

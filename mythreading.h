@@ -3,6 +3,10 @@
 
 #include <vector>
 #include <chrono>
+#include <exception>
+#include <string>
+
+#include <fmt/format.h>
 
 #ifdef __unix__         
 #define OS_LINUX
@@ -16,49 +20,92 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
+#include <cstring>
+#include <cerrno>
 #else
 #include <windows.h>
 #endif
 
 namespace my
 {
+	class threading_exception : public std::exception
+	{
+	private:
+		std::string error;
+	public:
+		explicit threading_exception(const std::string& _error)
+			: error{_error}
+		{
+		}
+		const char* what() const noexcept override
+		{
+			return error.c_str();
+		}
+	};
+
 	struct mutex
 	{
 #ifdef OS_LINUX
 		pthread_mutex_t m;
 		mutex()
 		{
-			pthread_mutex_init(&m, NULL);
+			if (pthread_mutex_init(&m, NULL) != 0)
+			{
+				throw threading_exception(fmt::format("pthread_mutex_init failed : {}", std::strerror(errno)));
+			}
 		}
 		void lock()
 		{
-			pthread_mutex_lock(&m);
+			if (pthread_mutex_lock(&m) != 0)
+			{
+				throw threading_exception(fmt::format("pthread_mutex_lock failed : {}", std::strerror(errno)));
+			}
 		}
 		void unlock()
 		{
-			pthread_mutex_unlock(&m);
+			if (pthread_mutex_unlock(&m) != 0)
+			{
+				throw threading_exception(fmt::format("pthread_mutex_unlock failed : {}", std::strerror(errno)));
+			}
 		}
 		~mutex()
 		{
-			pthread_mutex_destroy(&m);
+			if (pthread_mutex_destroy(&m) != 0)
+			{
+				std::cerr << fmt::format("pthread_mutex_destroy failed : {}\n", std::strerror(errno));
+			}
 		}
 #else // OS_WINDOWS
 		HANDLE m;
 		mutex()
 		{
 			m = CreateMutex(NULL, FALSE, NULL);
+			if (m == NULL)
+			{
+				throw threading_exception(fmt::format("CreateMutex failed : {}", GetLastError());
+			}
 		}
 		void lock()
 		{
-			WaitForSingleObject(m, INFINITE);
+			if (WaitForSingleObject(m, INFINITE) == WAIT_FAILED)
+			{
+				throw threading_exception("WaitForSingleObject failed : {}", GetLastError());
+			}
 		}
 		void unlock()
 		{
-			ReleaseMutex(m);
+			if (ReleaseMutex(m) == 0)
+			{
+				throw threading_exception("ReleaseMutex failed : {}", GetLastError());
+			}
 		}
 		~mutex()
 		{
-			CloseHandle(m);
+			if (CloseHandle(m) == 0)
+			{
+				std::cerr << fmt::format("CloseHandle failed : {}\n", GetLastError());
+			}
+			
 		}
 #endif
 	};
@@ -69,11 +116,25 @@ namespace my
 		lock_guard(my::mutex& m)
 			: mutex{ &m }
 		{
-			mutex->lock();
+			try
+			{
+				mutex->lock();
+			}
+			catch (const threading_exception& e)
+			{
+				throw;
+			}
 		}
 		~lock_guard()
 		{
-			mutex->unlock();
+			try
+			{
+				mutex->unlock();
+			}
+			catch (const threading_exception& e)
+			{
+				std::cerr << e.what() << '\n';
+			}
 		}
 	};
 
@@ -83,19 +144,47 @@ namespace my
 		unique_lock(my::mutex& m)
 			: mutex{ &m }
 		{
-			mutex->lock();
+			try
+			{
+				mutex->lock();
+			}
+			catch (const threading_exception& e)
+			{
+				throw;
+			}
 		}
 		void lock()
 		{
-			mutex->lock();
+			try
+			{
+				mutex->lock();
+			}
+			catch (const threading_exception& e)
+			{
+				throw;
+			}
 		}
 		void unlock()
 		{
-			mutex->unlock();
+			try
+			{
+				mutex->unlock();
+			}
+			catch (const threading_exception& e)
+			{
+				throw;
+			}
 		}
 		~unique_lock()
 		{
-			mutex->unlock();
+			try
+			{
+				mutex->unlock();
+			}
+			catch (const threading_exception& e)
+			{
+				std::cerr << e.what() << '\n';
+			}
 		}
 	};
 
@@ -114,7 +203,10 @@ namespace my
 		thread(routine_t _routine, void* _arg)
 			: routine{ _routine }, arg{ _arg }
 		{
-			pthread_create(&id, NULL, routine, arg);
+			if (pthread_create(&id, NULL, routine, arg) != 0)
+			{
+				throw threading_exception(fmt::format("pthread_create failed : {}", std::strerror(errno)));
+			}
 		}
 
 		thread(const thread& other)
@@ -129,7 +221,10 @@ namespace my
 
 		void join()
 		{
-			pthread_join(id, NULL);
+			if (pthread_join(id, NULL) != 0)
+			{
+				throw threading_exception(fmt::format("pthread_join failed : {}", std::strerror(errno)));
+			}
 		}
 		
 		bool operator !=(const thread& that)
@@ -150,6 +245,10 @@ namespace my
 			: routine{ _routine }, arg{ _arg }
 		{
 			thread_handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)routine, arg, 0, &id);
+			if (thread_handle == NULL)
+			{
+				throw threading_exception(fmt::format("CreateThread failed : {}", GetLastError()));
+			}
 		}
 
 		thread(const thread& other)
@@ -164,8 +263,14 @@ namespace my
 
 		void join()
 		{
-			WaitForSingleObject(thread_handle, INFINITE);
-			CloseHandle(thread_handle);
+			if (WaitForSingleObject(thread_handle, INFINITE) == WAIT_FAILED)
+			{
+				throw threading_exception(fmt::format("WaitForSingleObject failed : {}", GetLastError()));
+			}
+			if (CloseHandle(thread_handle) == 0)
+			{
+				throw threading_exception(fmt::format("CloseHandle failed : {}", GetLastError()));
+			}
 		}
 
 		bool operator !=(const thread& that)

@@ -8,7 +8,7 @@ EXEC = ./prog
 all: prog
 
 prog: $(SRC) $(INCLUDE)
-	$(CC) $(CFLAGS) $(SRC) -pthread -o $(EXEC)
+	$(CC) $(CFLAGS) $(SRC) -lfmt -pthread -o $(EXEC)
 
 clean:
 	rm -rf $(EXEC)
