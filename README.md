@@ -8,7 +8,7 @@ This is one source file for both Linux and Windows as OS-dependencies are abstra
 
 ## TODO
 
-- [ ] syscalls error handling
+- [x] syscalls error handling
 - [ ] tests
 
 ## 2A (linux)
