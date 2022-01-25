@@ -12,8 +12,10 @@
 
 #ifdef OS_LINUX
 #include <fmt/format.h>
+using fmt::format;
 #else
-#include <sstream>
+#include <format>
+using std::format;
 #endif
 
 
@@ -98,13 +100,7 @@ void* routine(void* queue)
 {
     std::osyncstream syncout{std::cout};
 
-#ifdef OS_LINUX
-    syncout << fmt::format("[THREAD: {}] Start...\n", my::this_thread::id()) << std::flush_emit;
-#else
-    std::stringstream ss;
-    ss << "[THREAD: " << my::this_thread::id() << "] Start...\n";
-    syncout << ss.str() << std::flush_emit;
-#endif
+    syncout << format("[THREAD: {}] Start...\n", my::this_thread::id()) << std::flush_emit;
 
     my::this_thread::sleep_for(settings::threads_routine_opening_sleep_time);
 
@@ -122,13 +118,7 @@ void* routine(void* queue)
 
     q->next();
 
-#ifdef OS_LINUX
-    syncout << fmt::format("[THREAD: {}] Stop...\n", my::this_thread::id()) << std::flush_emit;
-#else
-    ss.str(""); // clear ss contents; @note .clear() will clear error codes only
-    ss << "[THREAD: " << my::this_thread::id() << "] Stop...\n";
-    syncout << ss.str() << std::flush_emit;
-#endif
+    syncout << format("[THREAD: {}] Stop...\n", my::this_thread::id()) << std::flush_emit;
 
     return 0;
 }
@@ -180,13 +170,14 @@ int main(int argc [[maybe_unused]], char* argv[])
 
 void print_usage(const std::string& prog_name)
 {
-#ifdef OS_LINUX
-    std::cout << fmt::format("Usage: {} N[{}-{}] direction[{}/{}]\n", prog_name, settings::min_threads_to_create, settings::max_threads_to_create, settings::direction_inc, settings::direcion_dec);
-#else
-    std::cout <<
-        "Usage: " << prog_name << " N[" << settings::min_threads_to_create << '-' << settings::max_threads_to_create <<
-        "] direction[" << settings::direction_inc << '/' << settings::direcion_dec << "]\n";
-#endif
+    std::cout << format(
+        "Usage: {} N[{}-{}] direction[{}/{}]\n",
+            prog_name,
+            settings::min_threads_to_create,
+            settings::max_threads_to_create,
+            settings::direction_inc,
+            settings::direcion_dec
+        );
 }
 
 Direction cstr_to_direction(const std::string& str)
@@ -234,37 +225,19 @@ std::tuple<int, Direction> setup(char** argv)
     }
     catch (const std::exception& e [[maybe_unused]])
     {
-#ifdef OS_LINUX
-        throw ::setup_exception(fmt::format("Invalid argument: {}", args.at(0)));
-#else
-        std::stringstream ss;
-        ss << "Invalid argument: " << args.at(0);
-        throw ::setup_exception(ss.str());
-#endif
+        throw ::setup_exception(format("Invalid argument: {}", args.at(0)));
     }
 
     if (threads_to_create < settings::min_threads_to_create || threads_to_create > settings::max_threads_to_create)
     {
-#ifdef OS_LINUX
-        throw ::setup_exception(fmt::format("Invalid argument: {}", args.at(0)));
-#else
-        std::stringstream ss;
-        ss << "Invalid argument: " << args.at(0);
-        throw ::setup_exception(ss.str());
-#endif
+        throw ::setup_exception(format("Invalid argument: {}", args.at(0)));
     }
 
     auto direction = cstr_to_direction(args.at(1));
 
     if (direction == Direction::Invalid)
     {
-#ifdef OS_LINUX
-        throw ::setup_exception(fmt::format("Invalid argument: {}", args.at(1)));
-#else
-        std::stringstream ss;
-        ss << "Invalid argument: " << args.at(1);
-        throw ::setup_exception(ss.str());
-#endif
+        throw ::setup_exception(format("Invalid argument: {}", args.at(1)));
     }
 
     return std::make_tuple(threads_to_create, direction);

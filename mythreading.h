@@ -23,7 +23,7 @@
 #include <fmt/format.h>
 #else
 #include <windows.h>
-#include <sstream>
+#include <format>
 #endif
 
 namespace my
@@ -82,36 +82,28 @@ namespace my
 			m = CreateMutex(NULL, FALSE, NULL);
 			if (m == NULL)
 			{
-				std::stringstream ss;
-				ss << "CreateMutex failed : " << GetLastError();
-				throw threading_exception(ss.str());
+				throw threading_exception(std::format("CreateMutex failed : {}", GetLastError()));
 			}
 		}
 		void lock()
 		{
 			if (WaitForSingleObject(m, INFINITE) == WAIT_FAILED)
 			{
-				std::stringstream ss;
-				ss << "WaitForSingleObject failed : " << GetLastError();
-				throw threading_exception(ss.str());
+				throw threading_exception(std::format("WaitForSingleObject failed : {}", GetLastError()));
 			}
 		}
 		void unlock()
 		{
 			if (ReleaseMutex(m) == 0)
 			{
-				std::stringstream ss;
-				ss << "ReleaseMutex failed : " << GetLastError();
-				throw threading_exception(ss.str());
+				throw threading_exception(std::format("ReleaseMutex failed : {}", GetLastError()));
 			}
 		}
 		~mutex()
 		{
 			if (CloseHandle(m) == 0)
 			{
-				std::stringstream ss;
-				ss << "CloseHandle failed : " << GetLastError();
-				std::cerr << ss.str() << '\n';
+				throw threading_exception(std::format("CloseHandle failed : {}", GetLastError()));
 			}
 			
 		}
@@ -255,9 +247,7 @@ namespace my
 			thread_handle = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)routine, arg, 0, &id);
 			if (thread_handle == NULL)
 			{
-				std::stringstream ss;
-				ss << "CreateThread failed : " << GetLastError();
-				throw threading_exception(ss.str());
+				throw threading_exception(std::format("CreateThread failed : {}", GetLastError()));
 			}
 		}
 
@@ -275,15 +265,11 @@ namespace my
 		{
 			if (WaitForSingleObject(thread_handle, INFINITE) == WAIT_FAILED)
 			{
-				std::stringstream ss;
-				ss << "WaitForSingleObject failed : " << GetLastError();
-				throw threading_exception(ss.str());
+				throw threading_exception(std::format("WaitForSingleObject failed : {}", GetLastError()));
 			}
 			if (CloseHandle(thread_handle) == 0)
 			{
-				std::stringstream ss;
-				ss << "CloseHandle failed : " << GetLastError();
-				throw threading_exception(ss.str());
+				throw threading_exception(std::format("CloseHandle failed : {}", GetLastError()));
 			}
 		}
 
