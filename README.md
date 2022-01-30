@@ -62,7 +62,7 @@ Usage: ./prog N[3-100] direction[inc/dec]
 ## 2B (windows)
 
 ### Requirements
-* c++20
+* c++20 (with latest experimental MSVC std::format features enabled)
 
 ### Build
 use your favourite compiler/build system/IDE
