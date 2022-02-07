@@ -1,6 +1,7 @@
 #ifndef MY_THREADING_H
 #define MY_THREADING_H
 
+#include <utility>
 #include <vector>
 #include <chrono>
 #include <exception>
@@ -17,7 +18,7 @@
 #ifdef OS_LINUX
 #include <pthread.h>
 #include <unistd.h>
-#include <time.h>
+#include <ctime>
 #include <cstring>
 #include <cerrno>
 #include <fmt/format.h>
@@ -33,11 +34,11 @@ namespace my
 	private:
 		std::string error;
 	public:
-		explicit threading_exception(const std::string& _error)
-			: error{_error}
+		explicit threading_exception(std::string  _error)
+			: error{std::move(_error)}
 		{
 		}
-		const char* what() const noexcept override
+		[[nodiscard]] const char* what() const noexcept override
 		{
 			return error.c_str();
 		}
@@ -46,10 +47,10 @@ namespace my
 	struct mutex
 	{
 #ifdef OS_LINUX
-		pthread_mutex_t m;
+		pthread_mutex_t m{};
 		mutex()
 		{
-			if (pthread_mutex_init(&m, NULL) != 0)
+			if (pthread_mutex_init(&m, nullptr) != 0)
 			{
 				throw threading_exception(fmt::format("pthread_mutex_init failed : {}", std::strerror(errno)));
 			}
@@ -76,7 +77,7 @@ namespace my
 			}
 		}
 #else // OS_WINDOWS
-		HANDLE m;
+		HANDLE m{};
 		mutex()
 		{
 			m = CreateMutex(NULL, FALSE, NULL);
@@ -113,7 +114,7 @@ namespace my
 	struct lock_guard
 	{
 		my::mutex* mutex;
-		lock_guard(my::mutex& m)
+		explicit lock_guard(my::mutex& m)
 			: mutex{ &m }
 		{
 			try
@@ -138,10 +139,11 @@ namespace my
 		}
 	};
 
-	struct unique_lock
+	struct [[maybe_unused]] unique_lock
 	{
 		my::mutex* mutex;
-		unique_lock(my::mutex& m)
+
+        [[maybe_unused]] explicit unique_lock(my::mutex& m)
 			: mutex{ &m }
 		{
 			try
@@ -153,7 +155,7 @@ namespace my
 				throw;
 			}
 		}
-		void lock()
+		void lock() const
 		{
 			try
 			{
@@ -164,7 +166,7 @@ namespace my
 				throw;
 			}
 		}
-		void unlock()
+		void unlock() const
 		{
 			try
 			{
@@ -197,37 +199,34 @@ namespace my
 		using id_t = pthread_t;
 	private:
 		routine_t routine;
-		pthread_t id;
+		pthread_t id{};
 		void* arg;
 	public:
 		thread(routine_t _routine, void* _arg)
 			: routine{ _routine }, arg{ _arg }
 		{
-			if (pthread_create(&id, NULL, routine, arg) != 0)
+			if (pthread_create(&id, nullptr, routine, arg) != 0)
 			{
 				throw threading_exception(fmt::format("pthread_create failed : {}", std::strerror(errno)));
 			}
 		}
 
-		thread(const thread& other)
-			: routine{ other.routine }, id{ other.id }, arg{ other.arg }
-		{
-		}
+		thread(const thread& other) = default;
 
 		[[nodiscard]] pthread_t getid() const
 		{
 			return id;
 		}
 
-		void join()
+		void join() const
 		{
-			if (pthread_join(id, NULL) != 0)
+			if (pthread_join(id, nullptr) != 0)
 			{
 				throw threading_exception(fmt::format("pthread_join failed : {}", std::strerror(errno)));
 			}
 		}
 		
-		bool operator !=(const thread& that)
+		bool operator !=(const thread& that) const
 		{
 			return this->id != that.id;
 		}
@@ -236,8 +235,8 @@ namespace my
 		using id_t = DWORD;
 	private:
 		routine_t routine;
-		HANDLE thread_handle;
-		id_t id;
+		HANDLE thread_handle{};
+		id_t id{};
 		void* arg;
 
 	public:
@@ -273,7 +272,7 @@ namespace my
 			}
 		}
 
-		bool operator !=(const thread& that)
+		bool operator !=(const thread& that) const
 		{
 			return this->id != that.id;
 		}
@@ -297,11 +296,11 @@ namespace my
 			using namespace std::chrono_literals;
 			using namespace std::chrono;
 
-			struct timespec ts;
+			struct timespec ts{};
 			ts.tv_sec = static_cast<long>(duration_cast<seconds>(time).count());
 			ts.tv_nsec = static_cast<long>(duration_cast<nanoseconds>(time % 1000ms).count());
 
-			nanosleep(&ts, NULL);
+			nanosleep(&ts, nullptr);
 #else // OS_WINDOWS
 			Sleep(static_cast<DWORD>(time.count()));
 #endif
