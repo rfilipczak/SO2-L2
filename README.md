@@ -19,6 +19,12 @@ This is one source file for both Linux and Windows as OS-dependencies are abstra
 * make
 * [fmt](https://github.com/fmtlib/fmt)
 
+#### Install fmt on Ubuntu
+```console
+$ sudo apt update
+$ sudo apt install libfmt-dev
+```
+
 ### Build and run
 
 ```console
