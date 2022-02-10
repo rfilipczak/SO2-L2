@@ -9,7 +9,7 @@ namespace iohelp
 {
     std::string get_prog_name(char** argv)
     {
-        return std::string(argv[0]);
+        return {argv[0]};
     }
 
     std::vector<std::string> create_arg_list(char** argv)
@@ -20,7 +20,7 @@ namespace iohelp
         return args;
     }
 
-    void wait_for_input(const std::string& prompt = "Press anything... ")
+    [[maybe_unused]] void wait_for_input(const std::string& prompt = "Press anything... ")
     {
         std::cout << prompt << '\n';
         std::string input;

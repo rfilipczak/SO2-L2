@@ -1,9 +1,9 @@
 #include <iostream>
 #include <chrono>
 #include <tuple>
-#include <algorithm>
 #include <syncstream>
 #include <exception>
+#include <utility>
 
 
 #include "iohelp.h"
@@ -104,7 +104,7 @@ void* routine(void* queue)
 
     my::this_thread::sleep_for(settings::threads_routine_opening_sleep_time);
 
-    ::thread_queue* q = (::thread_queue*)queue;
+    auto* q = (::thread_queue*)queue;
 
     while (!q->sorted())
     {
@@ -120,7 +120,7 @@ void* routine(void* queue)
 
     syncout << format("[THREAD: {}] Stop...\n", my::this_thread::id()) << std::flush_emit;
 
-    return 0;
+    return nullptr;
 }
 
 
@@ -195,11 +195,11 @@ class setup_exception : public std::exception
 private:
     std::string error;
 public:
-    explicit setup_exception(const std::string& _error)
-        : error{_error}
+    explicit setup_exception(std::string  _error)
+        : error{std::move(_error)}
     {
     }
-    const char* what() const noexcept override
+    [[nodiscard]] const char* what() const noexcept override
     {
         return error.c_str();
     }
